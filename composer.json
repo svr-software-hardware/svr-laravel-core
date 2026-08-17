@@ -1,0 +1,43 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "svr/laravel-core",
+    "description": "Core utilities and conventions for SVR Laravel projects.",
+    "type": "library",
+    "license": "proprietary",
+    "keywords": ["svr", "laravel", "public-id", "audit"],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.5 || ^12.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "SVR\\LaravelCore\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SVR\\LaravelCore\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-text"
+    },
+    "extra": {
+        "laravel": {
+            "providers": ["SVR\\LaravelCore\\SvrLaravelCoreServiceProvider"]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
