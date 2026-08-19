@@ -52,6 +52,29 @@ Schema::create('invoices', function (Blueprint $table) {
 
 Incluye `auditFields()` únicamente si el modelo usa `AuditableModel`. Consulta [Migraciones](migrations.md) para decidir si las columnas deben ser nullable.
 
+Cuando una entidad recibe el ID público de otra, declara inmediatamente la relación y `publicIdMap()` en el modelo. Sin este mapa, el request recibirá la cadena pública sin convertir y fallará una regla como `integer`:
+
+```php
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+public function company(): BelongsTo
+{
+    return $this->belongsTo(Company::class);
+}
+
+public function publicIdMap(): array
+{
+    return [
+        'company_id' => [
+            'model' => Company::class,
+            'relation' => 'company',
+            'many' => false,
+        ],
+    ];
+}
+```
+
+
 Ejecuta la migración:
 
 ```bash
@@ -95,6 +118,50 @@ class StoreInvoiceRequest extends BaseFormRequest
 ```
 
 Si `company_id` se declara en `Invoice::publicIdMap()`, el cliente envía el ID público y el request lo convierte a la llave interna antes de ejecutar estas reglas.
+
+El flujo es:
+
+```text
+company_id público → BaseFormRequest → publicIdMap()
+                  → llave interna → rules() → persistencia
+```
+
+Usa `$request->validated()` para enviar a la capa de guardado únicamente los datos autorizados por las reglas.
+
+## Crear el request de actualización
+
+Separa las reglas de creación y actualización cuando el endpoint permita cambios parciales o tenga campos únicos:
+
+```bash
+php artisan make:request UpdateInvoiceRequest
+```
+
+```php
+use Illuminate\Validation\Rule;
+
+public function rules(): array
+{
+    $invoice = $this->route('invoice');
+
+    return [
+        'company_id' => [
+            'sometimes',
+            'required',
+            'integer',
+            'exists:companies,id',
+        ],
+        'reference' => [
+            'sometimes',
+            'required',
+            Rule::unique('invoices', 'reference')
+                ->ignore($invoice),
+        ],
+    ];
+}
+```
+
+La regla `sometimes` valida el campo solo cuando está presente. `ignore($invoice)` permite conservar el valor único que ya pertenece al registro actual; nunca pases directamente datos controlados por el usuario a `ignore()`.
+
 
 ## Crear un API Resource
 
@@ -176,3 +243,5 @@ Después de generar los archivos:
 5. Extiende `BaseResource` en el resource.
 6. Carga las relaciones necesarias antes de construir la respuesta.
 7. Ejecuta las pruebas de la aplicación.
+
+Consulta [Diagnóstico de integración](troubleshooting.md) si Laravel redirige al inicio, no resuelve un modelo o no transforma una relación.

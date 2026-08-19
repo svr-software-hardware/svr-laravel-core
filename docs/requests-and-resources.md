@@ -4,6 +4,8 @@ El mismo mapa de relaciones permite aceptar IDs públicos en solicitudes y devol
 
 ## Declarar `publicIdMap()`
 
+> **Obligatorio:** declara este mapa en toda entidad que reciba IDs públicos relacionados. La existencia de una relación Eloquent por sí sola no permite que `BaseFormRequest` conozca qué modelo debe consultar.
+
 Define el mapa en el modelo propietario:
 
 ```php
@@ -79,6 +81,32 @@ protected function afterPublicIdResolution(): void
 ```
 
 El modelo devuelto por `modelClass()` debe ser Eloquent y soportar `getPublicIdColumn()`. Cada definición de entrada necesita `model`; una configuración inválida genera `LogicException`.
+
+## Errores de validación en APIs
+
+Un Form Request se valida antes de ejecutar el método del controlador. Si la petición no espera JSON, Laravel trata el fallo como un formulario web y redirige a la ubicación anterior. Los clientes deben enviar:
+
+```text
+Accept: application/json
+Content-Type: application/json
+```
+
+Para garantizar JSON en todas las rutas API de Laravel 12 o 13, configura `bootstrap/app.php`:
+
+```php
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Http\Request;
+
+->withExceptions(function (Exceptions $exceptions): void {
+    $exceptions->shouldRenderJsonWhen(
+        fn(Request $request, \Throwable $exception): bool =>
+            $request->is('api/*') || $request->expectsJson()
+    );
+})
+```
+
+El error tendrá estado `422`. Personaliza sus textos mediante `messages()` en el Form Request o mediante los archivos de idioma de validación de la aplicación.
+
 
 ## Serializar respuestas
 

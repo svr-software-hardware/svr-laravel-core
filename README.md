@@ -38,6 +38,7 @@ php artisan vendor:publish --tag=svr-core-config
 - [IDs públicos](docs/public-ids.md)
 - [Campos de auditoría](docs/audit-fields.md)
 - [Form Requests y Resources](docs/requests-and-resources.md)
+- [Diagnóstico de integración](docs/troubleshooting.md)
 - [Versionado y compatibilidad](docs/versioning.md)
 
 ## Modelos con public ID
