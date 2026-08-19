@@ -93,11 +93,12 @@ return new BaseResource(
 `BaseResource` aplica estas transformaciones:
 
 1. Reemplaza el `id` propio por el ID público y elimina el atributo `public_id`.
-2. Elimina atributos del modelo terminados en `_id`.
-3. Elimina la serialización directa de relaciones cargadas.
-4. Agrega los campos del mapa con los IDs públicos de esas relaciones.
+2. Elimina llaves internas terminadas en `_id`.
+3. Conserva y transforma recursivamente las relaciones cargadas que soportan IDs públicos.
+4. Si una relación singular cargada coincide con una FK, reemplaza esa FK por el ID público relacionado; por ejemplo, `created_by_id` usa la relación `created_by`.
+5. Agrega los campos de `publicIdMap()` con los IDs públicos de sus relaciones.
 
-Solo se emite un campo mapeado si su relación está cargada. Una relación singular nula produce `null`; una colección produce un arreglo. Los modelos relacionados también deben soportar IDs públicos.
+El resource nunca carga relaciones por sí mismo. Una relación debe cargarse explícitamente para aparecer y para convertir su FK. Una relación singular nula produce `null`; una colección produce un arreglo. Los modelos relacionados deben soportar IDs públicos para transformarse de forma segura.
 
 Para excepciones controladas, crea un resource propio:
 
@@ -116,4 +117,4 @@ class InvoiceResource extends BaseResource
 }
 ```
 
-`rawIdFields()` conserva atributos terminados en `_id` que no son llaves internas. `preservedRelationFields()` conserva relaciones cargadas bajo su nombre serializado en `snake_case`. No agregues aquí relaciones que puedan filtrar IDs internos sin transformarlos.
+`rawIdFields()` conserva atributos terminados en `_id` que no son llaves internas. `preservedRelationFields()` permite conservar sin transformación relaciones cuyos modelos no soportan IDs públicos. Usa esta última excepción solamente cuando la estructura serializada sea segura y no pueda filtrar llaves internas.

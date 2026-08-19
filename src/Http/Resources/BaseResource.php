@@ -20,7 +20,10 @@ class BaseResource extends JsonResource {
 
     $data = $this->removeInternalForeignKeys($data);
 
-    $data = $this->removeLoadedRelations($data);
+    $data = $this->transformLoadedRelations(
+      $data,
+      $request
+    );
 
     $data = $this->replaceRelationIds($data);
 
@@ -38,8 +41,8 @@ class BaseResource extends JsonResource {
   }
 
   /**
-   * Relaciones que explícitamente queramos conservar
-   * serializadas en un Resource personalizado.
+   * Relaciones sin soporte para public_id que
+   * explícitamente queramos conservar sin transformar.
    */
   protected function preservedRelationFields(): array {
     return [];
@@ -91,32 +94,117 @@ class BaseResource extends JsonResource {
     return $data;
   }
 
-  /**
-   * Evita que una relación Eloquent cargada se filtre
-   * directamente con sus IDs internos.
-   */
-  protected function removeLoadedRelations(array $data): array {
+  protected function transformLoadedRelations(
+    array $data,
+    mixed $request = null
+  ): array {
     foreach (
-      array_keys($this->resource->getRelations())
-      as $relationName
+      $this->resource->getRelations()
+      as $relationName => $related
     ) {
 
       $serializedName = Str::snake($relationName);
 
-      if (
-        in_array(
+      if ($this->canTransformRelation($related)) {
+        $data[$serializedName] =
+          $this->transformRelation(
+            $related,
+            $request
+          );
+
+        $data = $this->replaceInferredForeignKey(
+          $data,
           $serializedName,
-          $this->preservedRelationFields(),
-          true
-        )
-      ) {
+          $related
+        );
+
         continue;
       }
 
-      unset(
-        $data[$relationName],
-        $data[$serializedName]
+      if (!in_array(
+        $serializedName,
+        $this->preservedRelationFields(),
+        true
+      )) {
+        unset(
+          $data[$relationName],
+          $data[$serializedName]
+        );
+      }
+    }
+
+    return $data;
+  }
+
+  protected function canTransformRelation(
+    mixed $related
+  ): bool {
+    if ($related === null) {
+      return true;
+    }
+
+    if ($related instanceof Model) {
+      return method_exists(
+        $related,
+        'getPublicIdColumn'
       );
+    }
+
+    if ($related instanceof Collection) {
+      return $related->every(
+        fn(mixed $model) =>
+        $model instanceof Model
+          && method_exists(
+            $model,
+            'getPublicIdColumn'
+          )
+      );
+    }
+
+    return false;
+  }
+
+  protected function transformRelation(
+    mixed $related,
+    mixed $request = null
+  ): mixed {
+    if ($related === null) {
+      return null;
+    }
+
+    if ($related instanceof Model) {
+      return (new self($related))->resolve($request);
+    }
+
+    return $related
+      ->map(
+        fn(Model $model) =>
+        (new self($model))->resolve($request)
+      )
+      ->values()
+      ->all();
+  }
+
+  protected function replaceInferredForeignKey(
+    array $data,
+    string $relationName,
+    mixed $related
+  ): array {
+    $foreignKey = "{$relationName}_id";
+
+    if (!$this->resource->offsetExists($foreignKey)) {
+      return $data;
+    }
+
+    if ($related === null) {
+      $data[$foreignKey] = null;
+
+      return $data;
+    }
+
+    if ($related instanceof Model) {
+      $data[$foreignKey] =
+        $this->getModelPublicId($related);
     }
 
     return $data;
