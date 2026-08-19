@@ -29,6 +29,17 @@ php artisan vendor:publish --tag=svr-core-config
 
 `config/svr-core.php` permite cambiar el nombre, longitud, alfabeto y collation de `public_id`, además de las columnas y la tabla de usuarios empleadas para auditoría. La collation puede establecerse en `null` para motores que no admiten `utf8mb4_bin`.
 
+## Documentación
+
+- [Instalación y configuración](docs/installation.md)
+- [Flujo de trabajo con Artisan](docs/artisan-workflow.md)
+- [Migraciones](docs/migrations.md)
+- [Modelos base](docs/models.md)
+- [IDs públicos](docs/public-ids.md)
+- [Campos de auditoría](docs/audit-fields.md)
+- [Form Requests y Resources](docs/requests-and-resources.md)
+- [Versionado y compatibilidad](docs/versioning.md)
+
 ## Modelos con public ID
 
 ```php
