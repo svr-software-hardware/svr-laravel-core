@@ -121,12 +121,14 @@ return new BaseResource(
 `BaseResource` aplica estas transformaciones:
 
 1. Reemplaza el `id` propio por el ID público y elimina el atributo `public_id`.
-2. Elimina llaves internas terminadas en `_id`.
+2. Elimina llaves internas terminadas en `_id` cuando están declaradas en `publicIdMap()`, corresponden a auditoría o tienen una relación Eloquent.
 3. Conserva y transforma recursivamente las relaciones cargadas que soportan IDs públicos.
 4. Si una relación singular cargada coincide con una FK, reemplaza esa FK por el ID público relacionado; por ejemplo, `created_by_id` usa la relación `created_by`.
 5. Agrega los campos de `publicIdMap()` con los IDs públicos de sus relaciones.
 
 El resource nunca carga relaciones por sí mismo. Una relación debe cargarse explícitamente para aparecer y para convertir su FK. Una relación singular nula produce `null`; una colección produce un arreglo. Los modelos relacionados deben soportar IDs públicos para transformarse de forma segura.
+
+Los campos terminados en `_id` que no representan relaciones se conservan sin configuración adicional. Por ejemplo, `tax_id`, `provider_id` o un identificador de un sistema externo permanecen en la respuesta cuando el modelo no declara una relación correspondiente. Por seguridad, toda FK interna debe estar declarada en `publicIdMap()` o mediante una relación Eloquent.
 
 Para excepciones controladas, crea un resource propio:
 
@@ -145,4 +147,4 @@ class InvoiceResource extends BaseResource
 }
 ```
 
-`rawIdFields()` conserva atributos terminados en `_id` que no son llaves internas. `preservedRelationFields()` permite conservar sin transformación relaciones cuyos modelos no soportan IDs públicos. Usa esta última excepción solamente cuando la estructura serializada sea segura y no pueda filtrar llaves internas.
+`rawIdFields()` sigue disponible por compatibilidad para forzar que un atributo sea tratado como dato externo. Normalmente ya no es necesario porque los campos `_id` sin relación se conservan automáticamente. `preservedRelationFields()` permite conservar sin transformación relaciones cuyos modelos no soportan IDs públicos. Usa esta última excepción solamente cuando la estructura serializada sea segura y no pueda filtrar llaves internas.

@@ -31,7 +31,19 @@ class BaseResourceTest extends TestCase
             $table->id();
             $table->publicId();
             $table->string('name');
+            $table->string('tax_id');
+            $table->foreignId('reviewer_id')
+                ->nullable()
+                ->constrained('resource_users');
             $table->auditFields(nullable: true);
+            $table->timestamps();
+        });
+
+        Schema::create('resource_containers', function (Blueprint $table): void {
+            $table->id();
+            $table->publicId();
+            $table->foreignId('profile_id')
+                ->constrained('resource_categories');
             $table->timestamps();
         });
     }
@@ -45,11 +57,13 @@ class BaseResourceTest extends TestCase
 
         $category = ResourceCategory::query()->create([
             'name' => 'Electronics',
+            'tax_id' => 'XAXX010101000',
+            'reviewer_id' => $user->getKey(),
             'created_by_id' => $user->getKey(),
             'updated_by_id' => $user->getKey(),
         ]);
 
-        $category->load('created_by', 'updated_by');
+        $category->load('created_by', 'updated_by', 'reviewer');
 
         $data = (new BaseResource($category))->resolve();
 
@@ -57,6 +71,8 @@ class BaseResourceTest extends TestCase
         $this->assertArrayNotHasKey('public_id', $data);
         $this->assertSame($user->public_id, $data['created_by_id']);
         $this->assertSame($user->public_id, $data['updated_by_id']);
+        $this->assertSame($user->public_id, $data['reviewer_id']);
+        $this->assertSame('XAXX010101000', $data['tax_id']);
         $this->assertSame($user->public_id, $data['created_by']['id']);
         $this->assertSame($user->public_id, $data['updated_by']['id']);
         $this->assertArrayNotHasKey('public_id', $data['created_by']);
@@ -72,6 +88,8 @@ class BaseResourceTest extends TestCase
 
         $category = ResourceCategory::query()->create([
             'name' => 'Electronics',
+            'tax_id' => 'XAXX010101000',
+            'reviewer_id' => $user->getKey(),
             'created_by_id' => $user->getKey(),
             'updated_by_id' => $user->getKey(),
         ]);
@@ -80,6 +98,8 @@ class BaseResourceTest extends TestCase
 
         $this->assertArrayNotHasKey('created_by_id', $data);
         $this->assertArrayNotHasKey('updated_by_id', $data);
+        $this->assertArrayNotHasKey('reviewer_id', $data);
+        $this->assertSame('XAXX010101000', $data['tax_id']);
         $this->assertArrayNotHasKey('created_by', $data);
         $this->assertArrayNotHasKey('updated_by', $data);
     }
@@ -93,6 +113,8 @@ class BaseResourceTest extends TestCase
 
         $category = ResourceCategory::query()->create([
             'name' => 'Electronics',
+            'tax_id' => 'XAXX010101000',
+            'reviewer_id' => $user->getKey(),
             'created_by_id' => $user->getKey(),
             'updated_by_id' => $user->getKey(),
         ]);
@@ -112,6 +134,47 @@ class BaseResourceTest extends TestCase
         $this->assertArrayNotHasKey(
             'created_by_id',
             $data['categories'][0]
+        );
+        $this->assertArrayNotHasKey(
+            'reviewer_id',
+            $data['categories'][0]
+        );
+        $this->assertSame(
+            'XAXX010101000',
+            $data['categories'][0]['tax_id']
+        );
+    }
+
+    #[Test]
+    public function it_preserves_external_ids_in_a_nested_model(): void
+    {
+        $user = ResourceUser::query()->create([
+            'email' => 'admin@svr.com',
+        ]);
+
+        $category = ResourceCategory::query()->create([
+            'name' => 'Electronics',
+            'tax_id' => 'XAXX010101000',
+            'reviewer_id' => $user->getKey(),
+            'created_by_id' => $user->getKey(),
+            'updated_by_id' => $user->getKey(),
+        ]);
+
+        $container = ResourceContainer::query()->create([
+            'profile_id' => $category->getKey(),
+        ]);
+
+        $container->load('profile');
+
+        $data = (new BaseResource($container))->resolve();
+
+        $this->assertSame(
+            'XAXX010101000',
+            $data['profile']['tax_id']
+        );
+        $this->assertSame(
+            $category->public_id,
+            $data['profile_id']
         );
     }
 }
@@ -150,6 +213,29 @@ class ResourceCategory extends AuditableModel
         return $this->belongsTo(
             ResourceUser::class,
             'updated_by_id'
+        );
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(
+            ResourceUser::class,
+            'reviewer_id'
+        );
+    }
+}
+
+class ResourceContainer extends BaseModel
+{
+    protected $table = 'resource_containers';
+
+    protected $guarded = [];
+
+    public function profile(): BelongsTo
+    {
+        return $this->belongsTo(
+            ResourceCategory::class,
+            'profile_id'
         );
     }
 }

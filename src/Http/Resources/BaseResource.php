@@ -3,10 +3,13 @@
 namespace SVR\LaravelCore\Http\Resources;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use LogicException;
+use ReflectionMethod;
+use Throwable;
 
 class BaseResource extends JsonResource {
   public function resolve($request = null): array {
@@ -88,6 +91,10 @@ class BaseResource extends JsonResource {
         continue;
       }
 
+      if (!$this->isInternalForeignKey($attribute)) {
+        continue;
+      }
+
       unset($data[$attribute]);
     }
 
@@ -134,6 +141,85 @@ class BaseResource extends JsonResource {
     }
 
     return $data;
+  }
+
+  protected function isInternalForeignKey(
+    string $attribute
+  ): bool {
+    if (in_array($attribute, [
+      config(
+        'svr-core.audit.created_by_column',
+        'created_by_id'
+      ),
+      config(
+        'svr-core.audit.updated_by_column',
+        'updated_by_id'
+      ),
+    ], true)) {
+      return true;
+    }
+
+    if (
+      method_exists($this->resource, 'publicIdMap')
+      && array_key_exists(
+        $attribute,
+        $this->resource->publicIdMap()
+      )
+    ) {
+      return true;
+    }
+
+    foreach (
+      array_keys($this->resource->getRelations())
+      as $relationName
+    ) {
+      if (
+        Str::snake($relationName) . '_id'
+        === $attribute
+      ) {
+        return true;
+      }
+    }
+
+    $relationName = Str::beforeLast($attribute, '_id');
+
+    foreach (array_unique([
+      $relationName,
+      Str::camel($relationName),
+    ]) as $candidate) {
+      if ($this->isEloquentRelationMethod($candidate)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  protected function isEloquentRelationMethod(
+    string $method
+  ): bool {
+    if (!method_exists($this->resource, $method)) {
+      return false;
+    }
+
+    try {
+      $reflection = new ReflectionMethod(
+        $this->resource,
+        $method
+      );
+
+      if (
+        !$reflection->isPublic()
+        || $reflection->getNumberOfRequiredParameters() > 0
+      ) {
+        return false;
+      }
+
+      return $this->resource->{$method}()
+        instanceof Relation;
+    } catch (Throwable) {
+      return false;
+    }
   }
 
   protected function canTransformRelation(

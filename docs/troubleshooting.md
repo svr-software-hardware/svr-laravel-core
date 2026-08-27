@@ -57,6 +57,8 @@ $product->load([
 
 Para modelos que no pueden extender `BaseModel`, como `User`, agrega el trait `HasPublicId`. Si una relación no se carga, su FK interna se elimina para evitar filtrarla.
 
+Los identificadores externos como `tax_id` se conservan cuando no aparecen en `publicIdMap()` y no existe una relación Eloquent `tax()`. Si una FK interna se filtra como entero, declara su relación o agrégala a `publicIdMap()`.
+
 ## El mismo valor único falla durante la actualización
 
 Una regla `unique` simple encuentra el propio registro. En el request de actualización ignora el modelo resuelto por la ruta:
